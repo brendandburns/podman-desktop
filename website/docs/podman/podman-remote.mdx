@@ -111,7 +111,22 @@ On Windows, you need to use an absolute path for the identities; a path with ~ w
 
 :::
 
-5. Check within Podman Desktop such as the **Containers** section that you can now access your remote instance.
+5. On the first connection, Podman Desktop asks you to trust the server's SSH host key.
+   Compare the displayed SHA256 fingerprint with one obtained from the server administrator through a trusted channel.
+   Select **Trust host key** only if they match. Canceling refuses the connection.
+
+6. Check within Podman Desktop such as the **Containers** section that you can now access your remote instance.
+
+#### SSH host key verification
+
+Podman Desktop saves approved host key fingerprints per hostname and port in the Podman extension's storage directory,
+under `ssh-known-hosts`. This store is separate from OpenSSH's `~/.ssh/known_hosts`.
+Subsequent connections must present the same key. Changed keys are rejected without an option to bypass verification.
+
+If a server is intentionally rebuilt or its host key is rotated, verify the new fingerprint through a trusted channel.
+With Podman Desktop closed, remove only the fingerprint file identified in the verification error, then reconnect and
+approve the verified key. Do not remove trusted fingerprints merely to dismiss a host key mismatch.
+After canceling first-use approval, disable and re-enable remote connections to retry.
 
 #### Verification
 
