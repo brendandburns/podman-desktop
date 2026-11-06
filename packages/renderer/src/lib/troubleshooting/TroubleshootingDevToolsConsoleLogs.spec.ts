@@ -30,12 +30,27 @@ const LOCAL_TIMESTAMP = /2026-04-29T14:30:45[+-]\d{2}:\d{2}/;
 beforeAll(() => {
   vi.mocked(window.getConfigurationValue).mockResolvedValue(false);
   vi.mocked(window.updateConfigurationValue).mockResolvedValue(undefined);
+  vi.mocked(window.clearDevtoolsConsoleLogs).mockResolvedValue(undefined);
 });
 
 async function waitRender(customProperties: object): Promise<void> {
   render(TroubleshootingDevToolsConsoleLogs, { ...customProperties });
   await tick();
 }
+
+test('Clear logs clears retained history and removes displayed logs and clipboard content', async () => {
+  vi.mocked(window.getDevtoolsConsoleLogs).mockResolvedValue([
+    { logType: 'log', message: 'old message', date: new Date() },
+  ]);
+  await waitRender({});
+  expect(screen.getByRole('list', { name: 'logs' })).toBeInTheDocument();
+  await fireEvent.click(screen.getByRole('button', { name: 'Clear logs' }));
+  expect(window.clearDevtoolsConsoleLogs).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('list', { name: 'logs' })).not.toBeInTheDocument();
+  expect(screen.queryByText('old message')).not.toBeInTheDocument();
+  await fireEvent.click(screen.getByRole('button', { name: 'Copy To Clipboard' }));
+  expect(window.clipboardWriteText).toHaveBeenCalledWith('');
+});
 
 test('Check logs are displayed with clipboard button', async () => {
   const fixedDate = new Date('2026-04-29T14:30:45');

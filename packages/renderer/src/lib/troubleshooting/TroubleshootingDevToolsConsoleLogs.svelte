@@ -1,7 +1,7 @@
 <script lang="ts">
 import type { LogType } from '@desktop-framework/api';
 import { faFileLines, faPaste } from '@fortawesome/free-regular-svg-icons';
-import { faClock } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { Button } from '@podman-desktop/ui-svelte';
 import { Icon } from '@podman-desktop/ui-svelte/icons';
 import moment from 'moment';
@@ -30,6 +30,11 @@ function formatTimestamp(date: Date): string {
   return moment(date).format();
 }
 
+async function clearLogs(): Promise<void> {
+  await window.clearDevtoolsConsoleLogs();
+  logs = [];
+}
+
 async function copyLogsToClipboard(): Promise<void> {
   const logsText = logs
     .map(log =>
@@ -47,6 +52,8 @@ async function copyLogsToClipboard(): Promise<void> {
     <Icon size="1.875x" class="pr-3" icon={faFileLines} />
     <div class="text-xl">Logs</div>
     <div class="flex flex-1 justify-end items-center gap-1">
+      <Button title="Clear logs" on:click={clearLogs} type="link"
+        ><Icon class="h-5 w-5 cursor-pointer text-xl text-(--pd-button-icon-primary-text)" icon={faTrash} /></Button>
       <Button title="Toggle Timestamps" pressed={showTimestamps} on:click={async (): Promise<void> => { showTimestamps = !showTimestamps; await window.updateConfigurationValue(TIMESTAMPS_CONFIG_KEY, showTimestamps); }} type="link"
         ><Icon class="h-5 w-5 cursor-pointer text-xl {showTimestamps ? 'text-(--pd-button-icon-primary-text)' : 'text-(--pd-content-text)'}" icon={faClock} /></Button>
       <Button title="Copy To Clipboard" on:click={async (): Promise<void> => await copyLogsToClipboard()} type="link"

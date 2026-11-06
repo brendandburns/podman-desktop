@@ -23,9 +23,18 @@ import { WorkloadKind } from '@desktop-framework/api';
 import type { OpenDialogOptions, SaveDialogOptions } from '@desktop-framework/extension-api';
 import type { ContextBridge, IpcMain, IpcRenderer, IpcRendererEvent } from 'electron';
 import { contextBridge, ipcRenderer } from 'electron';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { MAX_CONSOLE_HISTORY_ENTRIES } from './console-history.js';
 import { buildApiSender, initExposure } from './index.js';
+
+const consoleFunctions = vi.hoisted(() => ({
+  log: console.log,
+  warn: console.warn,
+  trace: console.trace,
+  debug: console.debug,
+  error: console.error,
+}));
 
 vi.mock(import('electron'), async () => {
   return {
@@ -49,6 +58,11 @@ vi.mock(import('electron'), async () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  Object.assign(console, consoleFunctions);
+});
+
+afterEach(() => {
+  Object.assign(console, consoleFunctions);
 });
 
 test('build Api Sender', () => {
@@ -124,6 +138,44 @@ describe('collect calls to exposeInMainWorld and ipcRenderer.on and calls initEx
     );
 
     initExposure();
+    getInMainWorld('clearDevtoolsConsoleLogs')();
+  });
+
+  test('captures redacted renderer and main logs for retrieval and export', async () => {
+    console.warn('renderer', 'password=secret');
+    getRendererOn('console:output')({} as IpcRendererEvent, 'error', 'main', 'token=secret');
+
+    const logs = await getInMainWorld('getDevtoolsConsoleLogs')();
+    expect(logs).toEqual([
+      { logType: 'warn', date: expect.any(Date), message: 'renderer password=[REDACTED]' },
+      { logType: 'error', date: expect.any(Date), message: 'main ↪️ main token=[REDACTED]' },
+    ]);
+    vi.mocked(ipcRenderer.invoke).mockResolvedValue({ result: ['logs.zip'] });
+    expect(await getInMainWorld('troubleshootingSaveLogs')()).toEqual(['logs.zip']);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('troubleshooting:saveLogs', logs);
+
+    await getInMainWorld('clearDevtoolsConsoleLogs')();
+    expect(await getInMainWorld('getDevtoolsConsoleLogs')()).toEqual([]);
+    await getInMainWorld('troubleshootingSaveLogs')();
+    expect(ipcRenderer.invoke).toHaveBeenLastCalledWith('troubleshooting:saveLogs', []);
+    console.debug('new message');
+    expect(await getInMainWorld('getDevtoolsConsoleLogs')()).toEqual([
+      { logType: 'debug', date: expect.any(Date), message: 'new message' },
+    ]);
+  });
+
+  test('console capture preserves normal output while bounding history', async () => {
+    Object.assign(console, consoleFunctions);
+    const originalLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+    initExposure();
+    for (let index = 0; index <= MAX_CONSOLE_HISTORY_ENTRIES; index++) {
+      console.log('message', index);
+    }
+    expect(originalLog).toHaveBeenCalledTimes(MAX_CONSOLE_HISTORY_ENTRIES + 1);
+    expect(originalLog).toHaveBeenLastCalledWith('message', MAX_CONSOLE_HISTORY_ENTRIES);
+    const logs = await getInMainWorld('getDevtoolsConsoleLogs')();
+    expect(logs).toHaveLength(MAX_CONSOLE_HISTORY_ENTRIES);
+    originalLog.mockRestore();
   });
 
   test('openDialog', async () => {

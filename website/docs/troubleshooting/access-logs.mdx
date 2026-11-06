@@ -19,10 +19,15 @@ If you do not want to track the previous event logs, you can remove them from th
 1. Click the **Troubleshooting** icon in the status bar.
 1. Select the **Logs** tab to view the logs.
    ![accessing logs](img/access-logs.png)
+1. Optional: Click **Clear logs** to discard the retained console history. New messages continue to be captured. Clearing does not remove previously copied logs, exported files, or engine logs.
 1. Optional: Select the **Gather logs** tab to save all the logs into a .zip file.
    1. Click **collect and save logs as .zip**.
    1. Browse the location where you want to save the logs.
    1. Click **Save**. You get a successful operation notification.
+
+Console history retains the newest 1,000 messages, up to 1 MiB of UTF-8 message text. Individual messages longer than 16 KiB are truncated with a `[truncated]` marker, and the oldest messages are discarded when either history limit is reached.
+
+Common credential patterns (such as password and token fields, authorization credentials, URL credentials, and private keys) are redacted before console history is stored, displayed, copied, or exported. Redaction is best-effort: unrecognized sensitive content might remain. Review logs before sharing them. This does not change the original console output or redact other files included in a gathered log archive.
 
 #### Procedure: Resolve connection issues
 
