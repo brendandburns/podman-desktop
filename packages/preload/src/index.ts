@@ -156,10 +156,12 @@ import type {
 } from '@kubernetes/client-node';
 import { contextBridge, ipcRenderer } from 'electron';
 
+import { ConsoleHistory } from './console-history.js';
+
 export type OpenSaveDialogResultCallback = (result: string | string[] | undefined) => void;
 
 const originalConsole = console;
-const memoryLogs: { logType: LogType; date: Date; message: string }[] = [];
+const memoryLogs = new ConsoleHistory();
 
 export const buildApiSender = (): ApiSenderType => {
   const target = new EventTarget();
@@ -216,7 +218,7 @@ export function initExposure(): void {
     const originalFunction = originalConsole[logType];
     console[logType] = (...args: unknown[]): void => {
       originalFunction(...args);
-      memoryLogs.push({ logType: logType, date: new Date(), message: args.join(' ') });
+      memoryLogs.append(logType, args.join(' '));
     };
   });
 
@@ -273,9 +275,13 @@ export function initExposure(): void {
   contextBridge.exposeInMainWorld(
     'getDevtoolsConsoleLogs',
     async (): Promise<{ logType: LogType; date: Date; message: string }[]> => {
-      return memoryLogs;
+      return memoryLogs.getLogs();
     },
   );
+
+  contextBridge.exposeInMainWorld('clearDevtoolsConsoleLogs', async (): Promise<void> => {
+    memoryLogs.clear();
+  });
 
   contextBridge.exposeInMainWorld('sendNavigationItems', async (items: DisplayItem[]): Promise<void> => {
     return ipcRenderer.invoke('navigation:sendNavigationItems', items);
@@ -1500,7 +1506,7 @@ export function initExposure(): void {
   );
 
   contextBridge.exposeInMainWorld('troubleshootingSaveLogs', async (): Promise<string[]> => {
-    return ipcInvoke('troubleshooting:saveLogs', memoryLogs);
+    return ipcInvoke('troubleshooting:saveLogs', memoryLogs.getLogs());
   });
 
   contextBridge.exposeInMainWorld('getContributedMenus', async (context: string): Promise<Menu[]> => {
